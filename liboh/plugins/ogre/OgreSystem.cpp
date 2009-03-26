@@ -75,6 +75,8 @@ using Meru::MaterialScriptManager;
 #include <transfer/ServiceManager.hpp>
 
 //#include </Developer/SDKs/MacOSX10.4u.sdk/System/Library/Frameworks/Carbon.framework/Versions/A/Frameworks/HIToolbox.framework/Versions/A/Headers/HIView.h>
+#include "WebView.hpp"
+
 volatile char assert_thread_support_is_gequal_2[OGRE_THREAD_SUPPORT*2-3]={0};
 volatile char assert_thread_support_is_lequal_2[5-OGRE_THREAD_SUPPORT*2]={0};
 //enable the below when NEDMALLOC is turned off, so we can verify that NEDMALLOC is off
@@ -633,7 +635,22 @@ bool OgreSystem::renderOneFrame(Time curFrameTime, Duration deltaTime) {
     for (std::list<OgreSystem*>::iterator iter=sActiveOgreScenes.begin();iter!=sActiveOgreScenes.end();) {
         (*iter++)->postFrame(postFrameTime, postFrameDelta);
     }
-    static int counter=0;
+ 
+	// Temporary little hack to initialize and load a WebView
+	// since we lack the external infrastructure to do so
+
+	if(WebViewManager::getSingletonPtr())
+	{
+		WebViewManager::getSingletonPtr()->Update();
+		return;
+	}
+
+	WebViewManager* mgr = new WebViewManager(mRenderTarget->getViewport(0), "");
+
+	WebView* view = mgr->createWebView("test", 400, 300, OverlayPosition(RP_BOTTOMRIGHT));
+	view->loadURL("http://google.com");
+	
+	static int counter=0;
     counter++;
     return continueRendering;
 }
