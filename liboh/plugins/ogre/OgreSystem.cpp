@@ -635,6 +635,9 @@ bool OgreSystem::renderOneFrame(Time curFrameTime, Duration deltaTime) {
     for (std::list<OgreSystem*>::iterator iter=sActiveOgreScenes.begin();iter!=sActiveOgreScenes.end();) {
         (*iter++)->postFrame(postFrameTime, postFrameDelta);
     }
+
+	static int counter=0;
+    counter++;
  
 	// Temporary little hack to initialize and load a WebView
 	// since we lack the external infrastructure to do so
@@ -642,7 +645,7 @@ bool OgreSystem::renderOneFrame(Time curFrameTime, Duration deltaTime) {
 	if(WebViewManager::getSingletonPtr())
 	{
 		WebViewManager::getSingletonPtr()->Update();
-		return;
+		return continueRendering;
 	}
 
 	WebViewManager* mgr = new WebViewManager(mRenderTarget->getViewport(0), "");
@@ -650,8 +653,6 @@ bool OgreSystem::renderOneFrame(Time curFrameTime, Duration deltaTime) {
 	WebView* view = mgr->createWebView("test", 400, 300, OverlayPosition(RP_BOTTOMRIGHT));
 	view->loadURL("http://google.com");
 	
-	static int counter=0;
-    counter++;
     return continueRendering;
 }
 static Time debugStartTime = Time::now();
