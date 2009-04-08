@@ -35,11 +35,14 @@
 #include <oh/ProxyCameraObject.hpp>
 #include <oh/ProxyLightObject.hpp>
 #include <oh/ProxyMeshObject.hpp>
+#include <oh/ProxyWebViewObject.hpp>
+
 namespace Sirikata {
 class DemoProxyManager :public ProxyManager{
     std::tr1::shared_ptr<ProxyCameraObject> mCamera;
     std::tr1::shared_ptr<ProxyLightObject> mLight;
     std::tr1::shared_ptr<ProxyMeshObject> mAttachedMesh, mMesh;
+	std::tr1::shared_ptr<ProxyWebViewObject> mWebView;
     //noncopyable
     DemoProxyManager(const DemoProxyManager&cpy){}
 public:
@@ -47,20 +50,25 @@ public:
       : mCamera(new ProxyCameraObject(this, SpaceObjectReference(SpaceID(UUID::null()),ObjectReference(UUID::random())))),
         mLight(new ProxyLightObject(this, SpaceObjectReference(SpaceID(UUID::null()),ObjectReference(UUID::random())))),
         mAttachedMesh(new ProxyMeshObject(this, SpaceObjectReference(SpaceID(UUID::null()),ObjectReference(UUID::random())))),
-        mMesh(new ProxyMeshObject(this, SpaceObjectReference(SpaceID(UUID::null()),ObjectReference(UUID::random())))) {
-
+        mMesh(new ProxyMeshObject(this, SpaceObjectReference(SpaceID(UUID::null()),ObjectReference(UUID::random())))),
+		mWebView(new ProxyWebViewObject(this, SpaceObjectReference(SpaceID(UUID::null()),ObjectReference(UUID::random())))) {
     }
     void initialize(){
         notify(&ProxyCreationListener::createProxy,mCamera);
         notify(&ProxyCreationListener::createProxy,mLight);
         notify(&ProxyCreationListener::createProxy,mAttachedMesh);
         notify(&ProxyCreationListener::createProxy,mMesh);
+		notify(&ProxyCreationListener::createProxy,mWebView);
         mCamera->attach("",0,0);
         LightInfo li;
         li.setLightDiffuseColor(Color(0,0,1));
         li.setLightAmbientColor(Color(0,0,0));
         li.setLightPower(0);
         mLight->update(li);
+
+		mWebView->resize(500, 400);
+		mWebView->setPosition(OverlayPosition(RP_CENTER));
+		mWebView->loadURL("http://google.com");
 
 /*
         li.setLightDiffuseColor(Color(.7,0,1));

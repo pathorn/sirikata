@@ -467,6 +467,8 @@ bool OgreSystem::initialize(Provider<ProxyCreationListener*>*proxyManager, const
     mSceneManager->setShadowFarDistance(shadowFarDistance->as<float32>());
     sActiveOgreScenes.push_back(this);
 
+	new WebViewManager(0, "");
+
     return true;
 }
 namespace {
@@ -615,6 +617,15 @@ void OgreSystem::createProxy(ProxyObjectPtr p){
         }
 
     }
+    {
+        std::tr1::shared_ptr<ProxyWebViewObject> webviewpxy=std::tr1::dynamic_pointer_cast<ProxyWebViewObject>(p);
+        if (webviewpxy) {
+			WebView* view = WebViewManager::getSingleton().createWebView(UUID::random().rawHexData(), 100, 100, OverlayPosition());
+			view->setProxyObject(webviewpxy);
+        }
+        
+    }
+
 }
 void OgreSystem::destroyProxy(ProxyObjectPtr p){
 
@@ -644,14 +655,11 @@ bool OgreSystem::renderOneFrame(Time curFrameTime, Duration deltaTime) {
 
 	if(WebViewManager::getSingletonPtr())
 	{
-		WebViewManager::getSingletonPtr()->Update();
-		return continueRendering;
+		if(counter == 1)
+			WebViewManager::getSingleton().setDefaultViewport(mRenderTarget->getViewport(0));
+
+		WebViewManager::getSingleton().Update();
 	}
-
-	WebViewManager* mgr = new WebViewManager(mRenderTarget->getViewport(0), "");
-
-	WebView* view = mgr->createWebView("test", 400, 300, OverlayPosition(RP_BOTTOMRIGHT));
-	view->loadURL("http://google.com");
 	
     return continueRendering;
 }
