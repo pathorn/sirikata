@@ -467,7 +467,7 @@ bool OgreSystem::initialize(Provider<ProxyCreationListener*>*proxyManager, const
     mSceneManager->setShadowFarDistance(shadowFarDistance->as<float32>());
     sActiveOgreScenes.push_back(this);
 
-	new WebViewManager(0, "");
+	new WebViewManager(0, mInputManager, "");
 
     return true;
 }
