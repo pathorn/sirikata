@@ -200,7 +200,7 @@ bool SDLInputManager::tick(Time currentTime, Duration frameTime){
             mKeys[event->key.which]->fireButton(
                 mKeys[event->key.which],
                 this, 
-                event->key.keysym.sym, 
+                (unsigned int)event->key.keysym.scancode, 
                 (event->key.state == SDL_PRESSED), 
                 event->key.keysym.mod);
             break;
