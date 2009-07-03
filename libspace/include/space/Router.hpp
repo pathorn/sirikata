@@ -35,13 +35,14 @@
 
 #include <space/Platform.hpp>
 namespace Sirikata {
+
 class SIRIKATA_SPACE_EXPORT Router : public MessageService {
     std::vector<MessageService*> mServices;
 public:
 	Router(){}
 	~Router(){}
     void processMessage(const RoutableMessageHeader&header,
-		MemoryReference message_body){}
+		                MemoryReference message_body){}
 }; // class Space
 
 } // namespace Sirikata

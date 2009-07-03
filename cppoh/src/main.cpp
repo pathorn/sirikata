@@ -106,7 +106,7 @@ void handleCommand(const std::string &input, const OptionMapPtr &globalvariables
             std::string fname = "./" + value;
             if (value.find(".txt")!=std::string::npos) {
                 FILE *fp = NULL;
-                for (int i = 0; i < 3 && fp == NULL; i++) {
+                for (int i = 0; i < 4 && fp == NULL; i++) {
                     fp = fopen(fname.c_str(),"rt");
                     fname = "./."+fname;
                 }
@@ -218,32 +218,37 @@ void parseConfig(
 
 }
 
-int main(int argc,const char**argv) {
-    using namespace Sirikata;
-    PluginManager plugins;
-    plugins.load(
-#ifdef __APPLE__
 #ifdef NDEBUG
-        "libogregraphics.dylib"
+#define PLUGIN_SUFFIX
 #else
-        "libogregraphics_d.dylib"
+#define PLUGIN_SUFFIX "_d"
 #endif
+
+#ifdef _WIN32
+#define PLUGIN_PREFIX
+#else
+#define PLUGIN_PREFIX "lib"
+#endif
+
+#ifdef __APPLE__
+#define PLUGIN_EXT ".dylib"
 #else
 #ifdef _WIN32
-#ifdef NDEBUG
-        "ogregraphics.dll"
+#define PLUGIN_EXT ".dll"
 #else
-        "ogregraphics_d.dll"
-#endif
-#else
-#ifdef NDEBUG
-        "libogregraphics.so"
-#else
-        "libogregraphics_d.so"
+#define PLUGIN_EXT ".so"
 #endif
 #endif
-#endif
-        );
+
+#define PLUGIN_FILENAME(name) PLUGIN_PREFIX name PLUGIN_SUFFIX PLUGIN_EXT
+
+int main ( int argc,const char**argv ) {
+    using namespace Sirikata;
+    PluginManager plugins;
+    plugins.load (PLUGIN_FILENAME("ogregraphics"));
+    plugins.load (PLUGIN_FILENAME("bulletphysics"));
+    OptionSet::getOptions ( "" )->parse ( argc,argv );
+
     OptionMapPtr transferOptions (new OptionMap);
     {
         std::string contents(cdnConfigFile->as<String>());
@@ -277,14 +282,26 @@ int main(int argc,const char**argv) {
         os << "--workqueue=" << workQueue << " ";
         graphicsCommandArguments = os.str();
     }
-    String graphicsPluginName("ogregraphics");
+    String graphicsPluginName ( "ogregraphics" );
+    String physicsPluginName ( "bulletphysics" );
+    SILOG(cppoh,error,"dbm: initializing graphics");
     TimeSteppedSimulation *graphicsSystem=
         SimulationFactory::getSingleton()
-          .getConstructor(graphicsPluginName)(provider,graphicsCommandArguments);
+        .getConstructor ( graphicsPluginName ) ( provider,graphicsCommandArguments );
+    SILOG(cppoh,error,"dbm: initializing physics");
+    TimeSteppedSimulation *physicsSystem=
+        SimulationFactory::getSingleton()
+        .getConstructor ( physicsPluginName ) ( provider,graphicsCommandArguments );
+    if (!physicsSystem) {
+        SILOG(cppoh,error,"physicsSystem NULL!");
+    }
+    else {
+        SILOG(cppoh,error,"physicsSystem: " << std::hex << (unsigned long)physicsSystem);
+    }
     pm->initialize();
-    if (graphicsSystem) {
-        while (graphicsSystem->tick()) {
-
+    if ( graphicsSystem ) {
+        while ( graphicsSystem->tick() ) {
+            physicsSystem->tick();
         }
     } else {
         SILOG(cppoh,error,"Fatal Error: Unable to load OGRE Graphics plugin. The PATH environment variable is ignored, so make sure you have copied the DLLs from dependencies/ogre/bin/ into the current directory. Sorry about this!");

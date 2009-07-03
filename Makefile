@@ -27,17 +27,18 @@ dependencies:
 		*CYGWIN*|*win32*) \
 			if [ x = x"$(VCVER)" ]; then \
 				echo To force a specific version of visual studio, set VCVER to 8 or 9 ; \
-				[ -e c:/Program\ Files/Microsoft\ Visual\ Studio\ 9/VC/bin ] && \ 
+				[ -e c:/Program\ Files/Microsoft\ Visual\ Studio\ 9/VC/bin ] && \
 					svn co http://sirikata.googlecode.com/svn/trunk/win32vc9 dependencies || \
 					svn co http://sirikata.googlecode.com/svn/trunk/win32vc8 dependencies \
 			else \
 				svn co http://sirikata.googlecode.com/svn/trunk/win32vc$(VCVER) dependencies ; \
 			fi \
+			;; \
 		*) \
 			svn co http://sirikata.googlecode.com/svn/trunk/source dependencies \
 			;; \
-	esac \
-	[ -f dependencies ]
+	esac ; \
+	[ -d dependencies ]
 
 update-dependencies: dependencies
 	cd dependencies && svn update

@@ -46,25 +46,35 @@ static const InitializeGlobalOptions globalst (
     new OptionValue("scenefile", "scene.txt", OptionValueType<std::string>(), "A text file with locations and filenames of all meshes in a scene.", &scenefile),
     NULL);
 
-class DemoProxyManager :public ProxyManager{
+class DemoProxyManager :public ProxyManager {
     std::tr1::shared_ptr<ProxyCameraObject> mCamera;
     typedef std::map<SpaceObjectReference, ProxyObjectPtr > ObjectMap;
     ObjectMap mObjects;
 
 	std::tr1::shared_ptr<ProxyWebViewObject> mWebView;
     //noncopyable
-    DemoProxyManager(const DemoProxyManager&cpy){}
+    DemoProxyManager(const DemoProxyManager&cpy) {}
 
-    ProxyObjectPtr addMeshObject(const Transfer::URI &uri, const Location &location, const Vector3f &scale=Vector3f(1,1,1)) {
+    ProxyObjectPtr addMeshObject(const Transfer::URI &uri, const Location &location,
+                                 const Vector3f &scale=Vector3f(1,1,1),
+                                 const int mode=0, const float density=0.f, const float friction=0.f, const float bounce=0.f) {
         // parentheses around arguments required to resolve function/constructor ambiguity. This is ugly.
         SpaceObjectReference myId((SpaceID(UUID::null())),(ObjectReference(UUID::random())));
-        std::cout << "Add Mesh Object " << myId << " = " << uri<<std::endl;
+        std::cout << "Add Mesh Object " << myId << " = " << uri << " mode: " << mode << std::endl;
         std::tr1::shared_ptr<ProxyMeshObject> myObj(new ProxyMeshObject(this, myId));
         mObjects.insert(ObjectMap::value_type(myId, myObj));
         notify(&ProxyCreationListener::createProxy, myObj);
         myObj->resetPositionVelocity(Time::now(), location);
         myObj->setMesh(uri);
         myObj->setScale(scale);
+        physicalParameters pp = {0};
+        pp.mode = mode;
+        pp.density = density;
+        pp.friction = friction;
+        pp.bounce = bounce;
+        if (mode) {
+            myObj->setPhysical(pp);
+        }
         return myObj;
     }
 
@@ -94,14 +104,19 @@ class DemoProxyManager :public ProxyManager{
         Vector3d pos(0,0,0);
         Quaternion orient(Quaternion::identity());
         Vector3f scale(1,1,1);
+        int mode=0;
+        float density=2;
+        float friction=3;
+        float bounce=4;
 
-        fscanf(fp,"(%lf %lf %lf) [%f %f %f %f] <%f %f %f> ",&pos.x,&pos.y,&pos.z,&orient.w,&orient.x,&orient.y,&orient.z,&scale.x,&scale.y,&scale.z);
+        int ret = fscanf(fp,"(%lf %lf %lf) [%f %f %f %f] <%f %f %f> ",
+               &pos.x,&pos.y,&pos.z,&orient.w,&orient.x,&orient.y,&orient.z,&scale.x,&scale.y,&scale.z);
         Location location(pos, orient, Vector3f::nil(), Vector3f::nil(), 0.);
         // Read a line into filename.
         std::string filename;
         while (true) {
             char str[1024];
-			str[0]='\0';
+            str[0]='\0';
             fgets(str, 1024, fp);
             std::string append(str);
             if (append.length() == 0) {
@@ -114,6 +129,18 @@ class DemoProxyManager :public ProxyManager{
                 filename += append;
             }
         }
+        if (ret < 7) { // not all options existed in the file.
+            return;
+        }
+        if (sscanf(filename.c_str(),"{%d %f %f %f}", &mode, &density, &friction, &bounce)==4) {
+            size_t i;
+            for (i = 0; i < filename.length() && filename[i]!='}'; ++i) {
+            }
+            do {
+                ++i;
+            } while (i < filename.length() && isspace(filename[i]));
+            filename = filename.substr(i);
+        }
         std::string rest;
         std::string::size_type sppos=filename.find(' ');
         if (sppos != std::string::npos) {
@@ -123,7 +150,7 @@ class DemoProxyManager :public ProxyManager{
         if (filename=="CAMERA") {
             mCamera->resetPositionVelocity(Time::now(), location);
         } else if (filename=="point" || filename=="directional" || filename=="spotlight") {
-            LightInfo::LightTypes lighttype;
+            LightInfo::LightTypes lighttype = LightInfo::SPOTLIGHT;
             if (filename=="point") {
                 lighttype = LightInfo::POINT;
             } else if (filename=="spotlight") {
@@ -132,10 +159,16 @@ class DemoProxyManager :public ProxyManager{
                 lighttype = LightInfo::DIRECTIONAL;
             }
             LightInfo lightInfo;
+            lightInfo.setLightType(lighttype);
             float ambientPower=1, shadowPower=1;
             float x,y,z; // Light direction. Assume 0,1,0 for now.
             int castsshadow=1;
-            sscanf(rest.c_str(),"[%f %f %f %f] [%f %f %f %f] <%lf %f %f %f> <%f %f> [%f] %f %d <%f %f %f>",&lightInfo.mDiffuseColor.x,&lightInfo.mDiffuseColor.y,&lightInfo.mDiffuseColor.z,&ambientPower,&lightInfo.mSpecularColor.x,&lightInfo.mSpecularColor.y,&lightInfo.mSpecularColor.z,&shadowPower,&lightInfo.mLightRange,&lightInfo.mConstantFalloff,&lightInfo.mLinearFalloff,&lightInfo.mQuadraticFalloff,&lightInfo.mConeInnerRadians,&lightInfo.mConeOuterRadians,&lightInfo.mPower,&lightInfo.mConeFalloff,&castsshadow,&x,&y,&z);
+            sscanf(rest.c_str(),"[%f %f %f %f] [%f %f %f %f] <%lf %f %f %f> <%f %f> [%f] %f %d <%f %f %f>",
+                   &lightInfo.mDiffuseColor.x,&lightInfo.mDiffuseColor.y,&lightInfo.mDiffuseColor.z,&ambientPower,
+                   &lightInfo.mSpecularColor.x,&lightInfo.mSpecularColor.y,&lightInfo.mSpecularColor.z,&shadowPower,
+                   &lightInfo.mLightRange,&lightInfo.mConstantFalloff,&lightInfo.mLinearFalloff,&lightInfo.mQuadraticFalloff,
+                   &lightInfo.mConeInnerRadians,&lightInfo.mConeOuterRadians,&lightInfo.mPower,&lightInfo.mConeFalloff,
+                   &castsshadow,&x,&y,&z);
             lightInfo.mCastsShadow = castsshadow?true:false;
 
             if (lightInfo.mDiffuseColor.length()&&lightInfo.mPower) {
@@ -150,8 +183,15 @@ class DemoProxyManager :public ProxyManager{
             }
             lightInfo.mWhichFields = LightInfo::ALL;
             addLightObject(lightInfo, location);
-        } else {
-            addMeshObject(Transfer::URI(filename), location, scale);
+        } else if (filename=="NULL") {
+            SpaceObjectReference myId((SpaceID(UUID::null())),(ObjectReference(UUID::random())));
+
+            std::tr1::shared_ptr<ProxyPositionObject> myObj(new ProxyPositionObject(this, myId));
+            mObjects.insert(ObjectMap::value_type(myId, myObj));
+            notify(&ProxyCreationListener::createProxy, myObj);
+            myObj->resetPositionVelocity(Time::now(), location);
+        } else if (!filename.empty()){
+            addMeshObject(Transfer::URI(filename), location, scale, mode, density, friction, bounce);
         }
     }
 
@@ -174,7 +214,7 @@ class DemoProxyManager :public ProxyManager{
 
 public:
     DemoProxyManager()
-      : mCamera(new ProxyCameraObject(this, SpaceObjectReference(SpaceID(UUID::null()),ObjectReference(UUID::random())))) {
+            : mCamera(new ProxyCameraObject(this, SpaceObjectReference(SpaceID(UUID::null()),ObjectReference(UUID::random())))) {
     }
 
     virtual void createObject(const ProxyObjectPtr &newObj) {
@@ -195,8 +235,8 @@ public:
         notify(&ProxyCreationListener::createProxy,mCamera);
         mCamera->attach("",0,0);
         mCamera->resetPositionVelocity(Time::now(),
-                             Location(Vector3d(0,0,50.), Quaternion::identity(),
-                                      Vector3f::nil(), Vector3f::nil(), 0.));
+                                       Location(Vector3d(0,0,50.), Quaternion::identity(),
+                                                Vector3f::nil(), Vector3f::nil(), 0.));
 
 	addWebViewObject("http://google.com/");
 
@@ -211,26 +251,26 @@ public:
         li.setLightSpecularColor(Color(0,0,0));
         li.setLightShadowColor(Color(0,0,0));
         li.setLightPower(0.5);
-		li.setLightRange(1000);
-		li.setLightFalloff(0.1,0,0);
+        li.setLightRange(1000);
+        li.setLightFalloff(0.1,0,0);
         addLightObject(li, Location(Vector3d(0,1000.,0), Quaternion::identity(),
-                                      Vector3f::nil(), Vector3f::nil(), 0.));
+                                    Vector3f::nil(), Vector3f::nil(), 0.));
 
         addMeshObject(Transfer::URI("meru://cplatz@/arcade.mesh"),
-                             Location(Vector3d(0,0,0), Quaternion::identity(),
-                                      Vector3f(.05,0,0), Vector3f(0,0,0),0));
+                      Location(Vector3d(0,0,0), Quaternion::identity(),
+                               Vector3f(.05,0,0), Vector3f(0,0,0),0));
         addMeshObject(Transfer::URI("meru://cplatz@/arcade.mesh"),
-                             Location(Vector3d(5,0,0), Quaternion::identity(),
-                                      Vector3f(.05,0,0), Vector3f(0,0,0),0));
+                      Location(Vector3d(5,0,0), Quaternion::identity(),
+                               Vector3f(.05,0,0), Vector3f(0,0,0),0));
         addMeshObject(Transfer::URI("meru://cplatz@/arcade.mesh"),
-                             Location(Vector3d(0,5,0), Quaternion::identity(),
-                                      Vector3f(.05,0,0), Vector3f(0,0,0),0));
+                      Location(Vector3d(0,5,0), Quaternion::identity(),
+                               Vector3f(.05,0,0), Vector3f(0,0,0),0));
     }
     void destroy() {
         mCamera->destroy();
         notify(&ProxyCreationListener::destroyProxy,mCamera);
         for (ObjectMap::const_iterator iter = mObjects.begin();
-             iter != mObjects.end(); ++iter) {
+                iter != mObjects.end(); ++iter) {
             (*iter).second->destroy();
             notify(&ProxyCreationListener::destroyProxy,(*iter).second);
         }
@@ -239,11 +279,13 @@ public:
     ProxyObjectPtr getProxyObject(const SpaceObjectReference &id) const {
         if (id == mCamera->getObjectReference()) {
             return mCamera;
-        } else {
+        }
+        else {
             ObjectMap::const_iterator iter = mObjects.find(id);
             if (iter == mObjects.end()) {
                 return ProxyObjectPtr();
-            } else {
+            }
+            else {
                 return (*iter).second;
             }
         }
