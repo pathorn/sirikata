@@ -499,6 +499,25 @@ FIND_PACKAGE(SDL)
 #optional dependency: prox
 FIND_PACKAGE(PROX)
 
+#dependency: awesomium
+IF(NOT AWESOMIUM_ROOT)
+  IF(EXISTS ${PLATFORM_LIBS}/awesomium_v1.01_sdk_msvc8)
+    SET(AWESOMIUM_ROOT ${PLATFORM_LIBS}/awesomium_v1.01_sdk_msvc8)
+  ELSEIF(EXISTS ${PLATFORM_LIBS}/awesomium_v1.01_sdk_msvc9)
+    SET(AWESOMIUM_ROOT ${PLATFORM_LIBS}/awesomium_v1.01_sdk_msvc9)
+  ELSEIF(EXISTS ${PLATFORM_LIBS}/awesomium)
+    SET(AWESOMIUM_ROOT ${PLATFORM_LIBS}/awesomium)
+  ENDIF()
+  IF(WIN32 AND AWESOMIUM_ROOT)
+    GET_FILENAME_COMPONENT(AWESOMIUM_ROOT ${AWESOMIUM_ROOT} ABSOLUTE)
+  ENDIF()
+  IF(NOT AWESOMIUM_ROOT)
+    SET(AWESOMIUM_ROOT ${PLATFORM_LIBS})
+  ENDIF()
+ENDIF()
+
+FIND_PACKAGE(AWESOMIUM)
+
 #dependency: cxxtest
 SET(CXXTESTRoot ${TOP_LEVEL}/externals/cxxtest)
 
@@ -579,6 +598,10 @@ ENDIF()
 IF(MONO_FOUND)
 SET(INCLUDE_DIRECTORIES ${INCLUDE_DIRECTORIES} ${MONO_INCLUDE_DIRS})
 ENDIF()
+IF(AWESOMIUM_FOUND)
+SET(INCLUDE_DIRECTORIES ${INCLUDE_DIRECTORIES} ${AWESOMIUM_INCLUDE_DIRS})
+ENDIF()
+
 SET(INCLUDE_DIRECTORIES ${INCLUDE_DIRECTORIES} ${TOP_LEVEL}/externals/pbj/)
 
 INCLUDE_DIRECTORIES(BEFORE ${INCLUDE_DIRECTORIES})
@@ -747,7 +770,8 @@ SET(LIBOH_SOURCES ${LIBOH_SOURCE_DIR}/ObjectHost.cpp
                   ${LIBOH_SOURCE_DIR}/ProxyLightObject.cpp
                   ${LIBOH_SOURCE_DIR}/ProxyPositionObject.cpp
                   ${LIBOH_SOURCE_DIR}/ProxyManager.cpp 
-                  ${LIBOH_SOURCE_DIR}/ProxyCameraObject.cpp 
+                  ${LIBOH_SOURCE_DIR}/ProxyCameraObject.cpp
+                  ${LIBOH_SOURCE_DIR}/ProxyWebViewObject.cpp					
                   ${LIBOH_SOURCE_DIR}/SimulationFactory.cpp )
 SET(SPACE_SOURCES ${SPACE_SOURCE_DIR}/main.cpp )
 SET(PROXIMITY_SOURCES ${PROXIMITY_SOURCE_DIR}/main.cpp )
@@ -818,6 +842,9 @@ ${GFX}/resourceManager/ResourceManager.cpp
 ${GFX}/resourceManager/ResourceTransfer.cpp
 ${GFX}/resourceManager/ResourceUnloadTask.cpp
 ${GFX}/resourceManager/UploadTool.cpp
+${GFX}/ViewportOverlay.cpp
+${GFX}/WebView.cpp
+${GFX}/WebViewManager.cpp
         )
 
 #test source files
@@ -865,9 +892,9 @@ SET(SIRIKATA_CORE_LIBRARIES
     ${Boost_LIBRARIES} )
 IF(OGRE_FOUND AND sdl_FOUND)
 IF(MONO_FOUND)
-LINK_DIRECTORIES(${ANTLR_LIBRARY_DIRS} ${MONO_LIBRARY_DIRS} ${Boost_LIBRARY_DIRS} ${OGRE_LIBRARY_DIRS} ${sdl_LIBRARY_DIRS})
+LINK_DIRECTORIES(${ANTLR_LIBRARY_DIRS} ${MONO_LIBRARY_DIRS} ${Boost_LIBRARY_DIRS} ${OGRE_LIBRARY_DIRS} ${sdl_LIBRARY_DIRS} ${AWESOMIUM_LIBRARY_DIRS})
 ELSE()
-LINK_DIRECTORIES(${ANTLR_LIBRARY_DIRS} ${Boost_LIBRARY_DIRS} ${OGRE_LIBRARY_DIRS} ${sdl_LIBRARY_DIRS})
+LINK_DIRECTORIES(${ANTLR_LIBRARY_DIRS} ${Boost_LIBRARY_DIRS} ${OGRE_LIBRARY_DIRS} ${sdl_LIBRARY_DIRS} ${AWESOMIUM_LIBRARY_DIRS})
 ENDIF()
 ELSE()
 IF(MONO_FOUND)
@@ -924,9 +951,9 @@ IF(OGRE_FOUND)
 ADD_PLUGIN_TARGET(ogregraphics
                     SOURCES ${LIBOH_PLUGIN_OGREGRAPHICS_SOURCES}
                     TARGET_CXXFLAGS ${OGRE_CFLAGS} ${sdl_CFLAGS}
-                    TARGET_LDFLAGS ${OGRE_LDFLAGS} ${sdl_LDFLAGS}
+                    TARGET_LDFLAGS ${OGRE_LDFLAGS} ${sdl_LDFLAGS} ${AWESOMIUM_LDFLAGS}
                     TARGET_LIBRARIES ${SIRIKATA_OH_LIB} ${SIRIKATA_CORE_LIB} 
-                    LIBRARIES ${OGRE_LIBRARIES} ${sdl_LIBRARIES}
+                    LIBRARIES ${OGRE_LIBRARIES} ${sdl_LIBRARIES} ${AWESOMIUM_LIBRARIES}
                               ${Boost_REGEX_LIBRARY_${UPPERCASE_BUILD_TYPE}})
 ENDIF(OGRE_FOUND)
 

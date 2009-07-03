@@ -35,6 +35,8 @@
 #include <oh/ProxyCameraObject.hpp>
 #include <oh/ProxyLightObject.hpp>
 #include <oh/ProxyMeshObject.hpp>
+#include <oh/ProxyWebViewObject.hpp>
+
 namespace Sirikata {
 
 static OptionValue *scenefile;
@@ -49,6 +51,7 @@ class DemoProxyManager :public ProxyManager{
     typedef std::map<SpaceObjectReference, ProxyObjectPtr > ObjectMap;
     ObjectMap mObjects;
 
+	std::tr1::shared_ptr<ProxyWebViewObject> mWebView;
     //noncopyable
     DemoProxyManager(const DemoProxyManager&cpy){}
 
@@ -75,6 +78,16 @@ class DemoProxyManager :public ProxyManager{
         myObj->resetPositionVelocity(Time::now(), location);
         myObj->update(linfo);
         return myObj;
+    }
+    ProxyObjectPtr addWebViewObject(const std::string &url, int width=500, int height=400) {
+        SpaceObjectReference myId((SpaceID(UUID::null())),(ObjectReference(UUID::random())));
+		std::tr1::shared_ptr <ProxyWebViewObject> mWebView(new ProxyWebViewObject(this, SpaceObjectReference(myId)));
+        	mObjects.insert(ObjectMap::value_type(myId, mWebView));
+		notify(&ProxyCreationListener::createProxy,mWebView);
+		mWebView->resize(width, height);
+		mWebView->setPosition(OverlayPosition(RP_CENTER));
+		mWebView->loadURL(url);
+		return mWebView;
     }
 
     void loadSceneObject(FILE *fp) {
@@ -184,6 +197,8 @@ public:
         mCamera->resetPositionVelocity(Time::now(),
                              Location(Vector3d(0,0,50.), Quaternion::identity(),
                                       Vector3f::nil(), Vector3f::nil(), 0.));
+
+	addWebViewObject("http://google.com/");
 
         if (loadSceneFile(scenefile->as<std::string>())) {
             return; // success!
