@@ -95,7 +95,7 @@ class DemoProxyManager :public ProxyManager {
         	mObjects.insert(ObjectMap::value_type(myId, mWebView));
 		notify(&ProxyCreationListener::createProxy,mWebView);
 		mWebView->resize(width, height);
-		mWebView->setPosition(OverlayPosition(RP_CENTER));
+		mWebView->setPosition(OverlayPosition(RP_TOPRIGHT));
 		mWebView->loadURL(url);
 		return mWebView;
     }
@@ -238,7 +238,7 @@ public:
                                        Location(Vector3d(0,0,50.), Quaternion::identity(),
                                                 Vector3f::nil(), Vector3f::nil(), 0.));
 
-	addWebViewObject("http://google.com/");
+		addWebViewObject("http://sirikata.com/cgi-bin/virtualchat/irc.cgi", 400, 250);
 
         if (loadSceneFile(scenefile->as<std::string>())) {
             return; // success!
