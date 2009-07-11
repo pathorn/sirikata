@@ -185,7 +185,7 @@ void RunSendTests( const IpEndpointName& host )
 int main(int argc, char* argv[])
 {
 	std::cout << "testing rob's calls" << std::endl;
-	getIPAddress(0);
+	oscplugin::getIPAddress(0);
 
     if( argc >= 2 && strcmp( argv[1], "-h" ) == 0 ){
         std::cout << "usage: OscSendTests [hostname [port]]\n";

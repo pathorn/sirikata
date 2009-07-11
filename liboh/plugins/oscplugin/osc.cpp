@@ -10,6 +10,7 @@
 #define ADDRESS "192.168.176.56"
 #define PORT 7000
 
+namespace oscplugin {
 //osc_input_vars gOSCvars;
 
 
@@ -61,5 +62,6 @@ void sendOSCbundle(ball_coordinates currentClient) {
 	<< osc::EndBundle;
 
    if(p.IsReady()){ socket.Send( p.Data(), p.Size() );}
+}
 }
 

@@ -9,6 +9,8 @@
 // Copyright: See COPYING file that comes with this distribution
 //
 //
+
+namespace oscplugin {
 typedef struct {
 	float ball_x;
 	float ball_y;
@@ -69,4 +71,5 @@ osc_input_vars getOSCmessage( void ); // test data retrieval
 
 void getIPAddress (int index);
 
+}
 

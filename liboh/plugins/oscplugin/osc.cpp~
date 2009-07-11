@@ -10,13 +10,14 @@
 #define ADDRESS "192.168.176.56"
 #define PORT 7000
 
+namespace osc {
 //osc_input_vars gOSCvars;
 
 
 // if dynamic IP is enabled, ip's will be selected from an array populated by the user
 // currently, ips are set in the client and assed in 
 void getIPAddress (int index){
-	cout << "testing OSC library" << endl;
+	std::cout << "testing OSC library" << std::endl;
 }
 
 #define OUTPUT_BUFFER_SIZE 2048
@@ -61,5 +62,6 @@ void sendOSCbundle(ball_coordinates currentClient) {
 	<< osc::EndBundle;
 
    if(p.IsReady()){ socket.Send( p.Data(), p.Size() );}
+}
 }
 
