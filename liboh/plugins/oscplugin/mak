@@ -1,0 +1,9 @@
+#!/bin/bash
+g++ -Wall -O3 -I./ -DOSC_HOST_LITTLE_ENDIAN   -c -o tests/OscSendTests.o tests/OscSendTests.cpp
+g++ -Wall -O3 -I./ -DOSC_HOST_LITTLE_ENDIAN   -c -o ip/posix/NetworkingUtils.o ip/posix/NetworkingUtils.cpp
+g++ -Wall -O3 -I./ -DOSC_HOST_LITTLE_ENDIAN   -c -o ip/posix/UdpSocket.o ip/posix/UdpSocket.cpp
+g++ -Wall -O3 -I./ -DOSC_HOST_LITTLE_ENDIAN   -c -o ip/IpEndpointName.o ip/IpEndpointName.cpp
+g++ -Wall -O3 -I./ -DOSC_HOST_LITTLE_ENDIAN   -c -o osc/OscOutboundPacketStream.o osc/OscOutboundPacketStream.cpp
+g++ -Wall -O3 -I./ -DOSC_HOST_LITTLE_ENDIAN   -c -o osc/OscTypes.o osc/OscTypes.cpp
+g++ -Wall -O3 -I./ -DOSC_HOST_LITTLE_ENDIAN   -c -o osc.o osc.cpp
+g++ -o bin/OscSendTests tests/OscSendTests.o osc/OscOutboundPacketStream.o osc/OscTypes.o ip/posix/NetworkingUtils.o ip/posix/UdpSocket.o ip/IpEndpointName.o  osc.o

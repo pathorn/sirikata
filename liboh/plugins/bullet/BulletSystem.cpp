@@ -248,7 +248,7 @@ bool BulletSystem::tick() {
                 Vector3f size = physicalObjects[i]->meshptr->getScale();
                 if (size.x==1 && size.y==1 && size.z==1) {
                     Vector3d position = physicalObjects[i]->meshptr->getPosition();
-                    cout << "hax: sphere of radius 1 moved to: " << position.x << ", " << position.y << ", " << position.z << endl;
+                    DEBUG_OUTPUT(cout << "ccrma: sphere of radius 1 moved to: " << position.x << ", " << position.y << ", " << position.z << endl);
                     oscplugin::getIPAddress(1);
                 }
             }

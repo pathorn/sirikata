@@ -1065,7 +1065,7 @@ ADD_PLUGIN_TARGET(bulletphysics
                     SOURCES ${LIBOH_PLUGIN_BULLETPHYSICS_SOURCES}
                     TARGET_CXXFLAGS ${bullet_CFLAGS}
                     TARGET_LDFLAGS ${bullet_LDFLAGS} ${sirikata_LDFLAGS}
-                    TARGET_LIBRARIES ${SIRIKATA_OH_LIB} ${SIRIKATA_CORE_LIB} /home/dbm/bench/sirikata/liboh/plugins/oscplugin/osc.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/oscpack/osc/OscOutboundPacketStream.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/oscpack/osc/OscTypes.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/oscpack/ip/posix/NetworkingUtils.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/oscpack/ip/posix/UdpSocket.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/oscpack/ip/IpEndpointName.o
+                    TARGET_LIBRARIES ${SIRIKATA_OH_LIB} ${SIRIKATA_CORE_LIB} /home/dbm/bench/sirikata/liboh/plugins/oscplugin/osc.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/osc/OscOutboundPacketStream.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/osc/OscTypes.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/ip/posix/NetworkingUtils.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/ip/posix/UdpSocket.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/ip/IpEndpointName.o
                     LIBRARIES ${bullet_LIBRARIES})
 ENDIF()
 #binaries

@@ -2,11 +2,11 @@
 #include <string>
 #include <sstream>
 #include <iostream> //rkh
-#include "oscpack/osc/OscOutboundPacketStream.h"
-#include "oscpack/ip/UdpSocket.h"
-#include "oscpack/ip/IpEndpointName.h"
-#include "oscpack/osc/OscReceivedElements.h"
-#include "oscpack/osc/OscPacketListener.h"
+#include "osc/OscOutboundPacketStream.h"
+#include "ip/UdpSocket.h"
+#include "ip/IpEndpointName.h"
+#include "osc/OscReceivedElements.h"
+#include "osc/OscPacketListener.h"
 #define ADDRESS "192.168.176.56"
 #define PORT 7000
 
