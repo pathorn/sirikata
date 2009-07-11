@@ -30,6 +30,16 @@
 #ifndef OSC_HOSTENDIANNESS_H
 #define OSC_HOSTENDIANNESS_H
 
+#include <util/Platform.hpp>
+
+#if SIRIKATA_LITTLE_ENDIAN
+#define OSC_HOST_LITTLE_ENDIAN 1
+#endif
+
+#if SIRIAKTA_BIG_ENDIAN
+#define OSC_HOST_BIG_ENDIAN 1
+#endif
+
 /*
     Make sure either OSC_HOST_LITTLE_ENDIAN or OSC_HOST_BIG_ENDIAN is defined
 

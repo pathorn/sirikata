@@ -36,7 +36,7 @@
 #include <oh/SimulationFactory.hpp>
 #include <oh/ProxyObject.hpp>
 #include "btBulletDynamicsCommon.h"
-#include <oh/osc.h>
+#include <oscplugin/osc.h>
 
 using namespace std;
 static int core_plugin_refcount = 0;

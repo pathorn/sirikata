@@ -602,6 +602,7 @@ SET(CPPOH_DIR ${TOP_LEVEL}/cppoh)
 SET(LIBSPACE_INCLUDE_DIR ${LIBSPACE_DIR}/include)
 SET(LIBPROXIMITY_INCLUDE_DIR ${LIBPROXIMITY_DIR}/include)
 SET(LIBOH_INCLUDE_DIR ${LIBOH_DIR}/include)
+SET(LIBOH_PLUGIN_INCLUDE_DIR ${LIBOH_DIR}/plugins)
 
 #source file locations
 SET(LIBCORE_SOURCE_DIR ${LIBCORE_DIR}/src)
@@ -627,6 +628,7 @@ SET(INCLUDE_DIRECTORIES
   ${LIBSPACE_INCLUDE_DIR}
   ${LIBPROXIMITY_INCLUDE_DIR}
   ${LIBOH_INCLUDE_DIR}
+  ${LIBOH_PLUGIN_INCLUDE_DIR}
   ${LIBOH_DIR}/plugins/ogre/meruCompat #temporary hack
   ${SPACE_SOURCE_DIR}
   ${PROXIMITY_SOURCE_DIR}
@@ -1056,16 +1058,32 @@ ADD_PLUGIN_TARGET(prox
                     LIBRARIES ${PROX_LIBRARIES})
 ENDIF(PROX_FOUND)
 
+SET(LIBOH_PLUGIN_OSC_DIR ${LIBOH_PLUGIN_DIR}/oscplugin)
 SET(LIBOH_PLUGIN_BULLETPHYSICS_DIR ${LIBOH_PLUGIN_DIR}/bullet)
 SET(LIBOH_PLUGIN_BULLETPHYSICS_SOURCES
  ${LIBOH_PLUGIN_BULLETPHYSICS_DIR}/BulletSystem.cpp
     )
+
+SET(LIBOH_PLUGIN_OSC_SOURCES
+  ${LIBOH_PLUGIN_OSC_DIR}/osc.cpp
+  ${LIBOH_PLUGIN_OSC_DIR}/ip/posix/NetworkingUtils.cpp
+  ${LIBOH_PLUGIN_OSC_DIR}/ip/posix/UdpSocket.cpp
+  ${LIBOH_PLUGIN_OSC_DIR}/ip/IpEndpointName.cpp
+  ${LIBOH_PLUGIN_OSC_DIR}/osc/OscOutboundPacketStream.cpp
+  ${LIBOH_PLUGIN_OSC_DIR}/osc/OscReceivedElements.cpp
+  ${LIBOH_PLUGIN_OSC_DIR}/osc/OscTypes.cpp)
+
+# Add OSC to bullet plugin for now.
+SET(LIBOH_PLUGIN_BULLETPHYSICS_SOURCES
+    ${LIBOH_PLUGIN_BULLETPHYSICS_SOURCES}
+    ${LIBOH_PLUGIN_OSC_SOURCES})
+
 IF(bullet_FOUND)
 ADD_PLUGIN_TARGET(bulletphysics
                     SOURCES ${LIBOH_PLUGIN_BULLETPHYSICS_SOURCES}
                     TARGET_CXXFLAGS ${bullet_CFLAGS}
                     TARGET_LDFLAGS ${bullet_LDFLAGS} ${sirikata_LDFLAGS}
-                    TARGET_LIBRARIES ${SIRIKATA_OH_LIB} ${SIRIKATA_CORE_LIB} /home/dbm/bench/sirikata/liboh/plugins/oscplugin/osc.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/osc/OscOutboundPacketStream.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/osc/OscTypes.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/ip/posix/NetworkingUtils.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/ip/posix/UdpSocket.o /home/dbm/bench/sirikata/liboh/plugins/oscplugin/ip/IpEndpointName.o
+                    TARGET_LIBRARIES ${SIRIKATA_OH_LIB} ${SIRIKATA_CORE_LIB}
                     LIBRARIES ${bullet_LIBRARIES})
 ENDIF()
 #binaries
