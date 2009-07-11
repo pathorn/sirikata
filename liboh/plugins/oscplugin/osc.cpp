@@ -16,7 +16,7 @@
 // if dynamic IP is enabled, ip's will be selected from an array populated by the user
 // currently, ips are set in the client and assed in 
 void getIPAddress (int index){
-
+	std::cout << "testing OSC library" << std::endl;
 }
 
 #define OUTPUT_BUFFER_SIZE 2048

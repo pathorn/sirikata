@@ -67,4 +67,6 @@ void receiveOSCmessage( void ); // osc listener method
 
 osc_input_vars getOSCmessage( void ); // test data retrieval
 
+void getIPAddress (int index);
+
 
