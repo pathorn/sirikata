@@ -297,6 +297,11 @@ bool Server::onObjectHostMessageReceived(const ObjectHostConnectionID& conn_id, 
 
         // FIXME infinite queue
         mContext->mainStrand->post(
+// As a debugging tool for session messages, we can introduce delay in the
+// handling of session messages as a compile-time constant
+#ifdef SIRIKATA_SPACE_DELAY_HANDLE_SESSION_MESSAGE
+            Duration::seconds(SIRIKATA_SPACE_DELAY_HANDLE_SESSION_MESSAGE),
+#endif
             std::tr1::bind(
                 &Server::handleSessionMessage, this,
                 conn_id, obj_msg
@@ -457,6 +462,14 @@ void Server::handleSessionMessage(const ObjectHostConnectionID& oh_conn_id, Siri
         return;
     }
 
+    // Backwards compatibility note: by defaulting to 0, all the later
+    // checks on sequence numbers will always have them matching,
+    // meaning we default to the old behavior where requests could end
+    // up conflicting due to retries causing the sequence of requests
+    // to end up out of order. With old clients we could end up with
+    // all the same issues, but they still function 'normally' otherwise.
+    uint64 seqno = (session_msg.has_seqno() ? session_msg.seqno() : 0);
+
     // Connect or migrate messages
     if (session_msg.has_connect()) {
         if (session_msg.connect().has_version())
@@ -464,22 +477,22 @@ void Server::handleSessionMessage(const ObjectHostConnectionID& oh_conn_id, Siri
 
         if (session_msg.connect().type() == Sirikata::Protocol::Session::Connect::Fresh)
         {
-            handleConnect(oh_conn_id, *msg, session_msg.connect());
+            handleConnect(oh_conn_id, *msg, session_msg.connect(), seqno);
         }
         else if (session_msg.connect().type() == Sirikata::Protocol::Session::Connect::Migration)
         {
-            handleMigrate(oh_conn_id, *msg, session_msg.connect());
+            handleMigrate(oh_conn_id, *msg, session_msg.connect(), seqno);
         }
         else
             SILOG(space,error,"Unknown connection message type");
     }
     else if (session_msg.has_connect_ack()) {
-        handleConnectAck(oh_conn_id, *msg);
+        handleConnectAck(oh_conn_id, *msg, seqno);
     }
     else if (session_msg.has_disconnect()) {
         ObjectConnectionMap::iterator it = mObjects.find(session_msg.disconnect().object());
         if (it != mObjects.end()) {
-            handleDisconnect(session_msg.disconnect().object(), it->second);
+            handleDisconnect(session_msg.disconnect().object(), it->second, seqno);
             mContext->timeSeries->report(mTimeSeriesObjects, mObjects.size());
         }
     }
@@ -501,7 +514,9 @@ void Server::handleObjectHostConnectionClosed(const ObjectHostConnectionID& oh_c
         if (obj_conn->connID() != oh_conn_id)
             continue;
 
-        handleDisconnect(obj_id, obj_conn);
+        // By passing in the session ID we already have, we guarantee
+        // this will force disconnection
+        handleDisconnect(obj_id, obj_conn, obj_conn->sessionID());
     }
     mContext->timeSeries->report(mTimeSeriesObjects, mObjects.size());
 }
@@ -514,8 +529,9 @@ void Server::retryHandleConnect(const ObjectHostConnectionID& oh_conn_id, Sirika
     }
 }
 
-void Server::sendConnectError(const ObjectHostConnectionID& oh_conn_id, const UUID& obj_id) {
+void Server::sendConnectError(const ObjectHostConnectionID& oh_conn_id, const UUID& obj_id, uint64 session_request_seqno) {
     Sirikata::Protocol::Session::Container response_container;
+    if (session_request_seqno != 0) response_container.set_seqno(session_request_seqno);
     Sirikata::Protocol::Session::IConnectResponse response = response_container.mutable_connect_response();
     fillVersionInfo(response.mutable_version(), mContext);
     response.set_response( Sirikata::Protocol::Session::ConnectResponse::Error );
@@ -534,7 +550,7 @@ void Server::sendConnectError(const ObjectHostConnectionID& oh_conn_id, const UU
 }
 
 // Handle Connect message from object
-void Server::handleConnect(const ObjectHostConnectionID& oh_conn_id, const Sirikata::Protocol::Object::ObjectMessage& container, const Sirikata::Protocol::Session::Connect& connect_msg) {
+void Server::handleConnect(const ObjectHostConnectionID& oh_conn_id, const Sirikata::Protocol::Object::ObjectMessage& container, const Sirikata::Protocol::Session::Connect& connect_msg, uint64 seqno) {
     UUID obj_id = container.source_object();
 
     // If the requested location isn't on this server, redirect
@@ -556,7 +572,7 @@ void Server::handleConnect(const ObjectHostConnectionID& oh_conn_id, const Sirik
             SILOG(cbr,warn,"[SPACE] Connecting object was incorrectly determined to be in our region.");
 
         // Create and send error reply
-        sendConnectError(oh_conn_id, obj_id);
+        sendConnectError(oh_conn_id, obj_id, seqno);
         return;
     }
 
@@ -566,6 +582,7 @@ void Server::handleConnect(const ObjectHostConnectionID& oh_conn_id, const Sirik
 
         // Create and send redirect reply
         Sirikata::Protocol::Session::Container response_container;
+        if (seqno != 0) response_container.set_seqno(seqno);
         Sirikata::Protocol::Session::IConnectResponse response = response_container.mutable_connect_response();
         fillVersionInfo(response.mutable_version(), mContext);
         response.set_response( Sirikata::Protocol::Session::ConnectResponse::Redirect );
@@ -594,13 +611,13 @@ void Server::handleConnect(const ObjectHostConnectionID& oh_conn_id, const Sirik
         auth_data = connect_msg.auth();
     mAuthenticator->authenticate(
         obj_id, MemoryReference(auth_data),
-        std::tr1::bind(&Server::handleConnectAuthResponse, this, oh_conn_id, obj_id, connect_msg, std::tr1::placeholders::_1)
+        std::tr1::bind(&Server::handleConnectAuthResponse, this, oh_conn_id, obj_id, connect_msg, seqno, std::tr1::placeholders::_1)
     );
 }
 
-void Server::handleConnectAuthResponse(const ObjectHostConnectionID& oh_conn_id, const UUID& obj_id, const Sirikata::Protocol::Session::Connect& connect_msg, bool authenticated) {
+void Server::handleConnectAuthResponse(const ObjectHostConnectionID& oh_conn_id, const UUID& obj_id, const Sirikata::Protocol::Session::Connect& connect_msg, uint64 seqno, bool authenticated) {
     if (!authenticated) {
-        sendConnectError(oh_conn_id, obj_id);
+        sendConnectError(oh_conn_id, obj_id, seqno);
         return;
     }
 
@@ -611,17 +628,20 @@ void Server::handleConnectAuthResponse(const ObjectHostConnectionID& oh_conn_id,
     // same object ID.
     if (isObjectConnected(obj_id) || isObjectConnecting(obj_id)) {
         // Decide whether this is a conflict or a retry
-        if  //was already connected and it was the same oh sending msg
+        if  //was already connected, the same oh sending msg, and the same
+            //session request id
             (isObjectConnected(obj_id) &&
-                (mObjects[obj_id]->connID() == oh_conn_id))
+                (mObjects[obj_id]->connID() == oh_conn_id) &&
+                (mObjects[obj_id]->sessionID() == seqno))
         {
             // retry, tell them they're fine.
-            sendConnectSuccess(oh_conn_id, obj_id);
+            sendConnectSuccess(oh_conn_id, obj_id, seqno);
         }
         else if
-            // or was connecting and was the same oh sending message
+            // or was connecting, the same oh sending msg, and the same request id
             (isObjectConnecting(obj_id) &&
-                mStoredConnectionData[obj_id].conn_id == oh_conn_id)
+                (mStoredConnectionData[obj_id].conn_id == oh_conn_id) &&
+                (mStoredConnectionData[obj_id].session_seqno == seqno))
         {
             // Do nothing, they're still working on the connection. We can't
             // send success (they aren't fully connected yet) and we can't send
@@ -629,8 +649,11 @@ void Server::handleConnectAuthResponse(const ObjectHostConnectionID& oh_conn_id,
         }
         else
         {
-            // conflict, fail the new connection leaving existing alone
-            sendConnectError(oh_conn_id, obj_id);
+            // Conflict, fail the new connection leaving existing alone. Could
+            // be another OH requesting a conflicting connection, could be
+            // retries w/ new sequence numbers from the same one, but at this
+            // point we can't do anything about it
+            sendConnectError(oh_conn_id, obj_id, seqno);
         }
 
         return;
@@ -642,6 +665,7 @@ void Server::handleConnectAuthResponse(const ObjectHostConnectionID& oh_conn_id,
     StoredConnection sc;
     sc.conn_id = oh_conn_id;
     sc.conn_msg = connect_msg;
+    sc.session_seqno = seqno;
     mStoredConnectionData[obj_id] = sc;
 
     mOSeg->addNewObject(obj_id,connect_msg.bounds().radius());
@@ -669,7 +693,7 @@ void Server::finishAddObject(const UUID& obj_id, OSegAddNewStatus status)
           );
           BoundingSphere3f bnds = sc.conn_msg.bounds();
           // Create and store the connection
-          ObjectConnection* conn = new ObjectConnection(obj_id, mObjectHostConnectionManager, sc.conn_id);
+          ObjectConnection* conn = new ObjectConnection(obj_id, mObjectHostConnectionManager, sc.conn_id, sc.session_seqno);
           mObjects[obj_id] = conn;
           mContext->timeSeries->report(mTimeSeriesObjects, mObjects.size());
 
@@ -704,11 +728,11 @@ void Server::finishAddObject(const UUID& obj_id, OSegAddNewStatus status)
           // Stage the connection with the forwarder, but don't enable it until an ack is received
           mForwarder->addObjectConnection(obj_id, conn);
 
-          sendConnectSuccess(conn->connID(), obj_id);
+          sendConnectSuccess(conn->connID(), obj_id, sc.session_seqno);
       }
       else
       {
-          sendConnectError(sc.conn_id , obj_id);
+          sendConnectError(sc.conn_id , obj_id, sc.session_seqno);
       }
       mStoredConnectionData.erase(storedConIter);
   }
@@ -718,7 +742,7 @@ void Server::finishAddObject(const UUID& obj_id, OSegAddNewStatus status)
   }
 }
 
-void Server::sendConnectSuccess(const ObjectHostConnectionID& oh_conn_id, const UUID& obj_id) {
+void Server::sendConnectSuccess(const ObjectHostConnectionID& oh_conn_id, const UUID& obj_id, uint64 session_request_seqno) {
     TimedMotionVector3f loc = mLocationService->location(obj_id);
     TimedMotionQuaternion orient = mLocationService->orientation(obj_id);
     BoundingSphere3f bnds = mLocationService->bounds(obj_id);
@@ -726,6 +750,7 @@ void Server::sendConnectSuccess(const ObjectHostConnectionID& oh_conn_id, const 
 
     // Send reply back indicating that the connection was successful
     Sirikata::Protocol::Session::Container response_container;
+    if (session_request_seqno != 0) response_container.set_seqno(session_request_seqno);
     Sirikata::Protocol::Session::IConnectResponse response = response_container.mutable_connect_response();
     fillVersionInfo(response.mutable_version(), mContext);
     response.set_response( Sirikata::Protocol::Session::ConnectResponse::Success );
@@ -752,7 +777,7 @@ void Server::sendConnectSuccess(const ObjectHostConnectionID& oh_conn_id, const 
 
 // Handle Migrate message from object
 //this is called by the receiving server.
-void Server::handleMigrate(const ObjectHostConnectionID& oh_conn_id, const Sirikata::Protocol::Object::ObjectMessage& container, const Sirikata::Protocol::Session::Connect& migrate_msg)
+void Server::handleMigrate(const ObjectHostConnectionID& oh_conn_id, const Sirikata::Protocol::Object::ObjectMessage& container, const Sirikata::Protocol::Session::Connect& migrate_msg, uint64 seqno)
 {
     UUID obj_id = container.source_object();
 
@@ -764,7 +789,7 @@ void Server::handleMigrate(const ObjectHostConnectionID& oh_conn_id, const Sirik
     // Verify the requested position is on this server
 
     // Create and store the connection
-    ObjectConnection* conn = new ObjectConnection(obj_id, mObjectHostConnectionManager, oh_conn_id);
+    ObjectConnection* conn = new ObjectConnection(obj_id, mObjectHostConnectionManager, oh_conn_id, seqno);
     mObjectsAwaitingMigration[obj_id] = conn;
 
     // Try to handle this migration if all info is available
@@ -772,22 +797,37 @@ void Server::handleMigrate(const ObjectHostConnectionID& oh_conn_id, const Sirik
     SILOG(space,detailed,"Received migration message from " << obj_id.toString());
 
     handleMigration(obj_id);
-
-    //    handleMigration(migrate_msg.object());
-
 }
 
-void Server::handleConnectAck(const ObjectHostConnectionID& oh_conn_id, const Sirikata::Protocol::Object::ObjectMessage& container) {
+void Server::handleConnectAck(const ObjectHostConnectionID& oh_conn_id, const Sirikata::Protocol::Object::ObjectMessage& container, uint64 session_request_seqno) {
     UUID obj_id = container.source_object();
 
-    // Allow the forwarder to send to ship messages to this connection
+    // Ack must fully match the connection we have
+    ObjectConnectionMap::iterator it = mObjects.find(obj_id);
+    if (it == mObjects.end()) {
+        SILOG(space, detailed, "Ignoring connection ack for unknown object " << obj_id << ". This ack is probably an outdated retry.");
+        return;
+    }
+
+    ObjectConnection* conn = it->second;
+    if (conn->sessionID() != session_request_seqno) {
+        SILOG(space, detailed, "Ignoring connection ack for " << obj_id << " because session request ID " << session_request_seqno << " doesn't match the connection's session ID " << conn->sessionID() << ". This probably means we got an outdated connection ack retry.");
+        return;
+    }
+
+    // Allow the forwarder to send to ship messages to this connection. This is
+    // idempotent so even if this is a repeat ack, we can redo this.
     mForwarder->enableObjectConnection(obj_id);
 }
 
 // Note that the obj_id is intentionally not a const & so that we're sure it is
 // valid throughout this method.
-void Server::handleDisconnect(UUID obj_id, ObjectConnection* conn) {
+void Server::handleDisconnect(UUID obj_id, ObjectConnection* conn, uint64 session_request_seqno) {
     assert(conn->id() == obj_id);
+    if (conn->sessionID() != session_request_seqno) {
+        SILOG(space, detailed, "Ignoring disconnection request for " << obj_id << " because session request ID " << session_request_seqno << " doesn't match the connection's session ID " << conn->sessionID() << ". This probably means an old disconnection request was retried.");
+        return;
+    }
 
     mOSeg->removeObject(obj_id);
     mLocalForwarder->removeActiveConnection(obj_id);
@@ -856,7 +896,7 @@ void Server::handleMigration(const UUID& obj_id)
 
     // Try to find the info in both lists -- the connection and migration information
 
-    ObjectConnectionMap::iterator obj_map_it = mObjectsAwaitingMigration.find(obj_id);
+    MigrationRequestMap::iterator obj_map_it = mObjectsAwaitingMigration.find(obj_id);
     if (obj_map_it == mObjectsAwaitingMigration.end())
     {
         return;
@@ -931,6 +971,7 @@ void Server::handleMigration(const UUID& obj_id)
 
     // Send reply back indicating that the migration was successful
     Sirikata::Protocol::Session::Container response_container;
+    if (obj_conn->sessionID() != 0) response_container.set_seqno(obj_conn->sessionID());
     Sirikata::Protocol::Session::IConnectResponse response = response_container.mutable_connect_response();
     fillVersionInfo(response.mutable_version(), mContext);
     response.set_response( Sirikata::Protocol::Session::ConnectResponse::Success );
@@ -978,6 +1019,7 @@ void Server::handleMigrationEvent(const UUID& obj_id) {
             SILOG(space,detailed,"Starting migration of " << obj_id.toString() << " from " << mContext->id() << " to " << new_server_id);
 
             Sirikata::Protocol::Session::Container session_msg;
+            if (obj_conn->sessionID() != 0) session_msg.set_seqno(obj_conn->sessionID());
             Sirikata::Protocol::Session::IInitiateMigration init_migration_msg = session_msg.mutable_init_migration();
             init_migration_msg.set_new_server( (uint64)new_server_id );
             Sirikata::Protocol::Object::ObjectMessage* init_migr_obj_msg = createObjectMessage(
@@ -1107,7 +1149,7 @@ void Server::trySendMigrationMessages() {
 void Server::processAlreadyMigrating(const UUID& obj_id)
 {
 
-    ObjectConnectionMap::iterator obj_map_it = mObjectsAwaitingMigration.find(obj_id);
+    MigrationRequestMap::iterator obj_map_it = mObjectsAwaitingMigration.find(obj_id);
     if (obj_map_it == mObjectsAwaitingMigration.end())
     {
         return;
@@ -1189,6 +1231,7 @@ void Server::processAlreadyMigrating(const UUID& obj_id)
 
     // Send reply back indicating that the migration was successful
     Sirikata::Protocol::Session::Container response_container;
+    if (obj_conn->sessionID() != 0) response_container.set_seqno(obj_conn->sessionID());
     Sirikata::Protocol::Session::IConnectResponse response = response_container.mutable_connect_response();
     fillVersionInfo(response.mutable_version(), mContext);
     response.set_response( Sirikata::Protocol::Session::ConnectResponse::Success );

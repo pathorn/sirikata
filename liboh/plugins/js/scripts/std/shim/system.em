@@ -131,13 +131,15 @@ PresenceEntry.prototype.proxRemovedEvent = function (visibleObj,visTo)
      
 
       //self declarations
-      system.addToSelfMap= function(toAdd)
+      system.addToSelfMapAndPresencesArray = function(toAdd)
       {
           var selfKey = (toAdd == null) ? this.__NULL_TOKEN__ : toAdd.toString();
           if (selfKey in this._selfMap)
               return;
 
           this._selfMap[selfKey] = new PresenceEntry(selfKey,toAdd,proxManager);
+          if (toAdd !== null)
+              system.presences.push(toAdd);
       };
 
      system.printSelfMap = function()
@@ -803,20 +805,6 @@ PresenceEntry.prototype.proxRemovedEvent = function (visibleObj,visTo)
       {
           return baseSystem.create_context.apply(baseSystem, arguments);
       };
-
-
-     /**@ignore
-      Runs through presences array, and determines if should add presConn to that array
-      */
-     system.__addToPresencesArray = function (presConn)
-     {
-         for (var s in system.presences)
-         {
-             if (system.presences[s].toString() == presConn.toString())
-                 return;
-         }
-         system.presences.push(presConn);
-     };
      
       //not exposing
       /** @ignore */
@@ -824,8 +812,7 @@ PresenceEntry.prototype.proxRemovedEvent = function (visibleObj,visTo)
       {
           var returner = function(presConn, /**only for entity-wide onPresenceConnected call*/clearable)
           {
-              system.__addToPresencesArray(presConn);
-              this.addToSelfMap(presConn);
+              this.addToSelfMapAndPresencesArray(presConn);
               this.__setBehindSelf(presConn);
               if (typeof(callback) === 'function')
                   callback(presConn,clearable);
@@ -1083,7 +1070,7 @@ PresenceEntry.prototype.proxRemovedEvent = function (visibleObj,visTo)
             var isSuspended = false;
             var suspendedVelocity = new util.Vec3(0,0,0);
             var suspendedOrientationVelocity = new util.Quaternion(0,0,0,1);
-            var solidAngleQuery = 1000; //set it to a high solid angle.  
+            var query = "";
 
             
             if (typeof(firstArg) == 'object')
@@ -1128,10 +1115,12 @@ PresenceEntry.prototype.proxRemovedEvent = function (visibleObj,visTo)
                     connectedCallback = this.__wrapPresConnCB(firstArg['callback']);
 
                 if ('solidAngleQuery' in firstArg)
-                    solidAngleQuery = firstArg['solidAngleQuery'];
-                
+                    query = system.__presence_constructor__.__encodeDeprecatedQuery(firstArg['solidAngleQuery']);
+
+                if ('query' in firstArg)
+                    query = firstArg['query'];
             }
-            return system.restorePresence(sporef,pos,vel,posTime,orient,orientVel,orientTime,mesh,physics,scale,isCleared,contextID,isConnected,connectedCallback,isSuspended,suspendedVelocity,suspendedOrientationVelocity,solidAngleQuery);
+            return system.restorePresence(sporef,pos,vel,posTime,orient,orientVel,orientTime,mesh,physics,scale,isCleared,contextID,isConnected,connectedCallback,isSuspended,suspendedVelocity,suspendedOrientationVelocity,query);
 
         };
 
@@ -1155,17 +1144,14 @@ PresenceEntry.prototype.proxRemovedEvent = function (visibleObj,visTo)
       @param {boolean} isSuspended,
       @param {vec3} suspendedVelocity,
       @param {quaternion} suspendedOrientationVelocity,
-      @param {float} solidAngleQuery
-      @param {uint32} queryMaxResults
+      @param {string} query
       */
-     system.restorePresence = function(sporef,pos,vel,posTime,orient,orientVel,orientTime,mesh,physics,scale,isCleared,contextId,isConnected,connCB,isSuspended,suspendedVelocity,suspendedOrientationVelocity,solidAngleQuery,queryMaxResults)
+     system.restorePresence = function(sporef,pos,vel,posTime,orient,orientVel,orientTime,mesh,physics,scale,isCleared,contextId,isConnected,connCB,isSuspended,suspendedVelocity,suspendedOrientationVelocity,query)
      {
          if (connCB != null)
              connCB = this.__wrapPresConnCB(connCB);
 
-         if (queryMaxResults === undefined) queryMaxResults = 1000000;
-
-         return baseSystem.restorePresence(sporef,pos,vel,posTime,orient,orientVel,orientTime,mesh,physics,scale,isCleared,contextId,isConnected,connCB,isSuspended,suspendedVelocity,suspendedOrientationVelocity,solidAngleQuery,queryMaxResults);
+         return baseSystem.restorePresence(sporef,pos,vel,posTime,orient,orientVel,orientTime,mesh,physics,scale,isCleared,contextId,isConnected,connCB,isSuspended,suspendedVelocity,suspendedOrientationVelocity,query);
      };
       
       /** @deprecated Use createPresence */
@@ -1463,11 +1449,11 @@ PresenceEntry.prototype.proxRemovedEvent = function (visibleObj,visTo)
      //presence by default into self.
      if (typeof(baseSystem.getAssociatedPresence()) !== 'undefined')
      {
-             system.addToSelfMap(baseSystem.getAssociatedPresence());
+             system.addToSelfMapAndPresencesArray(baseSystem.getAssociatedPresence());
              system.__setBehindSelf(baseSystem.getAssociatedPresence());             
      }
      else
-         system.addToSelfMap(null);
+         system.addToSelfMapAndPresencesArray(null);
 
 
      // FIXME this shouldn't be in system, but its the only place we

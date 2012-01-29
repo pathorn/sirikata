@@ -239,7 +239,7 @@ INCLUDE(GitRevision)
 #  * Revisions also only have additions and are very minor.
 SET(SIRIKATA_VERSION_MAJOR "0" CACHE STRING "Sirikata's major version" FORCE)
 SET(SIRIKATA_VERSION_MINOR "0" CACHE STRING "Sirikata's minor version" FORCE)
-SET(SIRIKATA_VERSION_REVISION "18" CACHE STRING "Sirikata's revision version" FORCE)
+SET(SIRIKATA_VERSION_REVISION "19" CACHE STRING "Sirikata's revision version" FORCE)
 
 # These get translated into two settings: the VERSION and
 # SOVERSION. The SOVERSION includes just the major number so anything
@@ -658,7 +658,7 @@ ELSE()
   SET(BERKELIUM_TARGET_LIBRARIES)
   SET(BERKELIUM_TARGET_BINARIES)
   SET(BERKELIUM_LIBRARIES)
-  IF(EXISTS ${TOP_LEVEL}/externals/berkelium/chromium AND EXISTS ${TOP_LEVEL}/externals/berkelium/chromium/chromium)
+  IF(NOT DISABLE_BERKELIUM AND EXISTS ${TOP_LEVEL}/externals/berkelium/chromium AND EXISTS ${TOP_LEVEL}/externals/berkelium/chromium/chromium)
     # This name is needed by the ADD_CHROME_APP macro
     SET(BERKELIUM_TOP_LEVEL ${TOP_LEVEL}/externals/berkelium)
 
@@ -775,9 +775,12 @@ SET(LIBOAUTHCPP_INCLUDE_DIR ${TOP_LEVEL}/externals/liboauthcpp/include)
 # dependencies for Mac and Linux (Windows doesn't check versions but
 # it is also somewhere around that version). These currently
 # correspond to ffmpeg 0.8.7.
-SET(FFMPEG_AVUTIL_MINIMUM_VERSION 51.9.1)
-SET(FFMPEG_AVCODEC_MINIMUM_VERSION 53.8.0)
-SET(FFMPEG_AVFORMAT_MINIMUM_VERSION 53.5.0)
+#SET(FFMPEG_AVUTIL_MINIMUM_VERSION 51.9.1)
+#SET(FFMPEG_AVCODEC_MINIMUM_VERSION 53.8.0)
+#SET(FFMPEG_AVFORMAT_MINIMUM_VERSION 53.5.0)
+SET(FFMPEG_AVUTIL_MINIMUM_VERSION 51.7.0)
+SET(FFMPEG_AVCODEC_MINIMUM_VERSION 53.6.0)
+SET(FFMPEG_AVFORMAT_MINIMUM_VERSION 53.3.0)
 # Not sure how to set this yet, the various libav* libraries have
 # different version numbers
 #SET(FFMPEG_MINIMUM_VERSION 1.3.0)
@@ -909,6 +912,20 @@ SET(TEST_CASSANDRA FALSE
   CACHE BOOL "If enabled, include Cassandra tests. These tests require an external service (cassandra) and may require changing the test code to point at the correct cassandra server."
 )
 
+# -- Compile-time debugging settings --
+# Space session message delay
+# NOTE: When you set this, keep in mind that it takes a connect request +
+# connect success ack before messages are forwarded (which in turn allows the
+# base SST stream to get connected), meaning you should expect double this delay
+# for objects to finish connecting
+SET(SPACE_DELAY_HANDLE_SESSION_MESSAGE ""
+  CACHE STRING "If non-empty, apply this much delay (in seconds) to handling session messages on the space server."
+)
+STRING(LENGTH "${SPACE_DELAY_HANDLE_SESSION_MESSAGE}" SPACE_DELAY_HANDLE_SESSION_MESSAGE_LENGTH)
+IF(SPACE_DELAY_HANDLE_SESSION_MESSAGE_LENGTH GREATER 0)
+  ADD_DEFINITIONS(-DSIRIKATA_SPACE_DELAY_HANDLE_SESSION_MESSAGE=${SPACE_DELAY_HANDLE_SESSION_MESSAGE})
+ENDIF()
+# Space loc update delay
 SET(SPACE_DELAY_APPLY_LOC_UPDATE ""
   CACHE STRING "If non-empty, apply this much delay (in seconds) to applying loc update requests on the space server."
 )
@@ -1486,6 +1503,7 @@ SET(LIBPROXYOBJECT_SOURCES
   ${Bullet_PBJ_CPP_FILES}
                   ${LIBPROXYOBJECT_SOURCE_DIR}/Invokable.cpp
                   ${LIBPROXYOBJECT_SOURCE_DIR}/ProxyObject.cpp
+                  ${LIBPROXYOBJECT_SOURCE_DIR}/ProxyManager.cpp
                   ${LIBPROXYOBJECT_SOURCE_DIR}/VWObject.cpp
                   ${LIBPROXYOBJECT_SOURCE_DIR}/OrphanLocUpdateManager.cpp
     )
@@ -1495,7 +1513,6 @@ SET(LIBOH_SOURCES
                   ${LIBOH_SOURCE_DIR}/ObjectHost.cpp
                   ${LIBOH_SOURCE_DIR}/ObjectFactory.cpp
                   ${LIBOH_SOURCE_DIR}/HostedObject.cpp
-                  ${LIBOH_SOURCE_DIR}/ObjectHostProxyManager.cpp
                   ${LIBOH_SOURCE_DIR}/ObjectScriptManagerFactory.cpp
                   ${LIBOH_SOURCE_DIR}/ObjectHostContext.cpp
                   ${LIBOH_SOURCE_DIR}/PerPresenceData.cpp
@@ -2246,6 +2263,7 @@ SET(LIBOH_PLUGIN_JS_SOURCES
   ${LIBOH_PLUGIN_JS_DIR}/JSObjects/JSTimer.cpp
   ${LIBOH_PLUGIN_JS_DIR}/JSObjects/JSGlobal.cpp
   ${LIBOH_PLUGIN_JS_DIR}/JSSerializer.cpp
+  ${LIBOH_PLUGIN_JS_DIR}/JSVisibleData.cpp
   ${LIBOH_PLUGIN_JS_DIR}/JSVisibleManager.cpp
   ${LIBOH_PLUGIN_JS_DIR}/JSObjectStructs/JSContextStruct.cpp
   ${LIBOH_PLUGIN_JS_DIR}/JSObjectStructs/JSSystemStruct.cpp

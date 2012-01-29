@@ -87,7 +87,8 @@ protected:
 
     struct Object {
         Object(Graphics::Entity *m, const Transfer::URI& mesh_uri, ProxyObjectPtr _proxy = ProxyObjectPtr());
-        virtual ~Object(){}
+        virtual ~Object(){          
+        }
 
         const String& id() const { return name; }
 
@@ -125,7 +126,8 @@ protected:
     // Loading has started for these
     ObjectMap mLoadedObjects;
     // Waiting to be important enough to load
-    ObjectMap mWaitingObjects;
+    ObjectMap mWaitingObjects;        
+
 
     // Heap storage for Objects. Choice between min/max heap is at call time.
     typedef std::vector<Object*> ObjectHeap;
@@ -137,7 +139,8 @@ protected:
     // from the CDN and loaded into memory. Since a single asset can be loaded
     // many times by different 'Objects' (i.e. objects in the world) we track
     // them separately and make sure we only issue single requests for them.
-    struct Asset {
+    struct Asset : public Liveness
+    {
         Transfer::URI uri;
         AssetDownloadTaskPtr downloadTask;
         // Objects that want this asset to be loaded and are waiting for it
@@ -166,7 +169,10 @@ protected:
         ~Asset();
     };
     typedef std::tr1::unordered_map<Transfer::URI, Asset*, Transfer::URI::Hasher> AssetMap;
+
+
     AssetMap mAssets;
+
 
     // Because we aggregate all Asset requests so we only generate one
     // AssetDownloadTask, we need to aggregate some priorities
@@ -201,7 +207,7 @@ protected:
 
     // Helper to check if it's safe to remove an asset and does so if
     // possible. Properly handles current
-    void checkRemoveAsset(Asset* asset);
+    void checkRemoveAsset(Asset* asset,Liveness::Token lt);
 
     bool mActiveCDNArchive;
     unsigned int mCDNArchive;
